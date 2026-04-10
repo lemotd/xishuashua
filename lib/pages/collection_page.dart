@@ -40,45 +40,39 @@ class _CollectionPageState extends State<CollectionPage>
         body: Column(
           children: [
             // ── Custom header: safe area + nav bar + tabs ──
-            Container(
-              color: _c.surface,
-              child: Column(
-                children: [
-                  SizedBox(height: topPadding),
-                  // Nav bar: 56px
-                  SizedBox(
-                    height: 56,
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: _c.textPrimary,
-                            size: 18,
-                          ),
-                          onPressed: () => Navigator.pop(context),
+            Column(
+              children: [
+                SizedBox(height: topPadding),
+                // Nav bar: 56px
+                SizedBox(
+                  height: 56,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      _GlassCircleButton(
+                        icon: Icons.chevron_left_rounded,
+                        iconSize: 26,
+                        onTap: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '合集',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                          color: _c.textPrimary,
                         ),
-                        const Spacer(),
-                        Text(
-                          '合集',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: _c.textPrimary,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const Spacer(),
-                        // Balance the back button width
-                        const SizedBox(width: 52),
-                      ],
-                    ),
+                      ),
+                      const Spacer(),
+                      // Balance the back button width
+                      const SizedBox(width: 52),
+                    ],
                   ),
-                  // ── Tab bar ──
-                  _CustomTabBar(controller: _tabController),
-                ],
-              ),
+                ),
+                const SizedBox(height: 4),
+                // ── Tab bar ──
+                _CustomTabBar(controller: _tabController),
+              ],
             ),
             // ── Tab content ──
             Expanded(
@@ -94,7 +88,50 @@ class _CollectionPageState extends State<CollectionPage>
   }
 }
 
-// ── Custom tab bar with pill-style indicator ──
+// ── Glass circle button with highlight effect ──
+
+const _accent = Color(0xFFFFA30F);
+
+class _GlassCircleButton extends StatelessWidget {
+  final IconData icon;
+  final double iconSize;
+  final VoidCallback onTap;
+
+  const _GlassCircleButton({
+    required this.icon,
+    this.iconSize = 22,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.18),
+              Colors.white.withValues(alpha: 0.06),
+            ],
+          ),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+            width: 0.5,
+          ),
+        ),
+        child: Icon(icon, color: _c.textPrimary, size: iconSize),
+      ),
+    );
+  }
+}
+
+// ── Custom tab bar with full-width underline ──
 
 class _CustomTabBar extends StatelessWidget {
   final TabController controller;
@@ -109,12 +146,10 @@ class _CustomTabBar extends StatelessWidget {
       animation: controller.animation!,
       builder: (context, _) {
         final animValue = controller.animation!.value;
-        return Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        return SizedBox(
+          height: 48,
           child: Row(
             children: List.generate(_labels.length, (i) {
-              // Smooth progress: 1.0 when fully selected, 0.0 when not
               final distance = (animValue - i).abs();
               final progress = (1.0 - distance).clamp(0.0, 1.0);
 
@@ -123,30 +158,29 @@ class _CustomTabBar extends StatelessWidget {
                   onTap: () => controller.animateTo(i),
                   behavior: HitTestBehavior.opaque,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      const SizedBox(height: 4),
                       Text(
                         _labels[i],
                         style: TextStyle(
-                          fontSize: 15 + progress,
+                          fontSize: 16,
                           fontWeight: progress > 0.5
                               ? FontWeight.w600
                               : FontWeight.w400,
                           color: Color.lerp(
-                            _c.textHint,
-                            _c.textPrimary,
+                            _c.textSecondary,
+                            _accent,
                             progress,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 10),
                       Container(
-                        height: 3,
-                        width: 20 * progress,
+                        height: 2.5,
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
-                          color: _c.primary.withValues(alpha: progress),
-                          borderRadius: BorderRadius.circular(1.5),
+                          color: _accent.withValues(alpha: progress),
+                          borderRadius: BorderRadius.circular(1.25),
                         ),
                       ),
                     ],
