@@ -1,0 +1,442 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:photo_manager/photo_manager.dart';
+import '../color/app_colors.dart';
+import '../services/interaction_service.dart';
+
+const _c = AppColors.dark;
+
+class CollectionPage extends StatefulWidget {
+  const CollectionPage({super.key});
+
+  @override
+  State<CollectionPage> createState() => _CollectionPageState();
+}
+
+class _CollectionPageState extends State<CollectionPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: _c.background,
+        body: Column(
+          children: [
+            // ── Custom header: safe area + nav bar + tabs ──
+            Container(
+              color: _c.surface,
+              child: Column(
+                children: [
+                  SizedBox(height: topPadding),
+                  // Nav bar: 56px
+                  SizedBox(
+                    height: 56,
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: _c.textPrimary,
+                            size: 18,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '合集',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: _c.textPrimary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const Spacer(),
+                        // Balance the back button width
+                        const SizedBox(width: 52),
+                      ],
+                    ),
+                  ),
+                  // ── Tab bar ──
+                  _CustomTabBar(controller: _tabController),
+                ],
+              ),
+            ),
+            // ── Tab content ──
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: const [_DislikedGrid(), _LikedGrid(), _SharedGrid()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Custom tab bar with pill-style indicator ──
+
+class _CustomTabBar extends StatelessWidget {
+  final TabController controller;
+
+  const _CustomTabBar({required this.controller});
+
+  static const _labels = ['不喜欢', '喜欢', '分享过'];
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller.animation!,
+      builder: (context, _) {
+        final animValue = controller.animation!.value;
+        return Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: List.generate(_labels.length, (i) {
+              // Smooth progress: 1.0 when fully selected, 0.0 when not
+              final distance = (animValue - i).abs();
+              final progress = (1.0 - distance).clamp(0.0, 1.0);
+
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => controller.animateTo(i),
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(
+                        _labels[i],
+                        style: TextStyle(
+                          fontSize: 15 + progress,
+                          fontWeight: progress > 0.5
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color: Color.lerp(
+                            _c.textHint,
+                            _c.textPrimary,
+                            progress,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        height: 3,
+                        width: 20 * progress,
+                        decoration: BoxDecoration(
+                          color: _c.primary.withValues(alpha: progress),
+                          borderRadius: BorderRadius.circular(1.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Grid tabs ──
+
+class _DislikedGrid extends StatefulWidget {
+  const _DislikedGrid();
+  @override
+  State<_DislikedGrid> createState() => _DislikedGridState();
+}
+
+class _DislikedGridState extends State<_DislikedGrid>
+    with AutomaticKeepAliveClientMixin {
+  List<_GridItem> _items = [];
+  bool _loading = true;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final dislikedIds = InteractionService.getAllDisliked();
+    final items = <_GridItem>[];
+    for (final id in dislikedIds) {
+      final asset = await AssetEntity.fromId(id);
+      if (asset != null) {
+        final likeCount = InteractionService.getLikeCount(id);
+        items.add(_GridItem(asset: asset, count: likeCount));
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (_loading) {
+      return Center(child: CircularProgressIndicator(color: _c.primary));
+    }
+    if (_items.isEmpty) {
+      return _buildEmpty('还没有不喜欢的内容');
+    }
+    return _VideoGrid(items: _items, isLike: true);
+  }
+}
+
+class _LikedGrid extends StatefulWidget {
+  const _LikedGrid();
+  @override
+  State<_LikedGrid> createState() => _LikedGridState();
+}
+
+class _LikedGridState extends State<_LikedGrid>
+    with AutomaticKeepAliveClientMixin {
+  List<_GridItem> _items = [];
+  bool _loading = true;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final likedMap = InteractionService.getAllLiked();
+    final items = <_GridItem>[];
+    for (final entry in likedMap.entries) {
+      final asset = await AssetEntity.fromId(entry.key);
+      if (asset != null) {
+        items.add(_GridItem(asset: asset, count: entry.value));
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (_loading) {
+      return Center(child: CircularProgressIndicator(color: _c.primary));
+    }
+    if (_items.isEmpty) {
+      return _buildEmpty('还没有喜欢的内容');
+    }
+    return _VideoGrid(items: _items, isLike: true);
+  }
+}
+
+class _SharedGrid extends StatefulWidget {
+  const _SharedGrid();
+  @override
+  State<_SharedGrid> createState() => _SharedGridState();
+}
+
+class _SharedGridState extends State<_SharedGrid>
+    with AutomaticKeepAliveClientMixin {
+  List<_GridItem> _items = [];
+  bool _loading = true;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final sharedMap = InteractionService.getAllShared();
+    final items = <_GridItem>[];
+    for (final entry in sharedMap.entries) {
+      final asset = await AssetEntity.fromId(entry.key);
+      if (asset != null) {
+        items.add(_GridItem(asset: asset, count: entry.value));
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (_loading) {
+      return Center(child: CircularProgressIndicator(color: _c.primary));
+    }
+    if (_items.isEmpty) {
+      return _buildEmpty('还没有分享过的内容');
+    }
+    return _VideoGrid(items: _items, isLike: false);
+  }
+}
+
+// ── Shared components ──
+
+class _GridItem {
+  final AssetEntity asset;
+  final int count;
+  const _GridItem({required this.asset, required this.count});
+}
+
+Widget _buildEmpty(String text) {
+  return Center(
+    child: Text(text, style: TextStyle(color: _c.textHint, fontSize: 14)),
+  );
+}
+
+class _VideoGrid extends StatelessWidget {
+  final List<_GridItem> items;
+  final bool isLike;
+  const _VideoGrid({required this.items, required this.isLike});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.only(top: 2),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 2,
+        crossAxisSpacing: 2,
+        childAspectRatio: 3 / 4,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        return _GridTile(item: items[index], isLike: isLike);
+      },
+    );
+  }
+}
+
+class _GridTile extends StatelessWidget {
+  final _GridItem item;
+  final bool isLike;
+  const _GridTile({required this.item, required this.isLike});
+
+  String _formatCount(int count) {
+    if (count >= 100000000) {
+      return '${(count / 100000000).toStringAsFixed(1)}亿';
+    }
+    if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}万';
+    }
+    return count.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: item.asset.thumbnailDataWithSize(const ThumbnailSize(300, 400)),
+      builder: (context, snapshot) {
+        return Container(
+          color: _c.surface,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Thumbnail
+              if (snapshot.hasData && snapshot.data != null)
+                Image.memory(snapshot.data!, fit: BoxFit.cover)
+              else
+                Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: _c.textHint,
+                    ),
+                  ),
+                ),
+              // Bottom gradient for readability
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 40,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.6),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Count badge
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isLike ? Icons.favorite : Icons.reply,
+                      color: Colors.white,
+                      size: 13,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      _formatCount(item.count),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
