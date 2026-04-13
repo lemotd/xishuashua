@@ -307,20 +307,29 @@ class _FeedPageState extends State<FeedPage> {
               scrolledUnderElevation: 0,
               surfaceTintColor: Colors.transparent,
               centerTitle: true,
-              leading: IconButton(
-                icon: SvgPicture.asset(
-                  'images/collection.svg',
-                  width: 24,
-                  height: 24,
-                  colorFilter: ColorFilter.mode(
-                    _c.textPrimary,
-                    BlendMode.srcIn,
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CollectionPage()),
+              leading: Builder(
+                builder: (ctx) {
+                  return IconButton(
+                    icon: SvgPicture.asset(
+                      'images/collection.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        _c.textPrimary,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    onPressed: () {
+                      final box = ctx.findRenderObject() as RenderBox;
+                      final rect = box.localToGlobal(Offset.zero) & box.size;
+                      Navigator.push(
+                        context,
+                        _CollectionExpandRoute(
+                          page: const CollectionPage(),
+                          originRect: rect,
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -566,4 +575,82 @@ class _HeartEntry {
   final int id;
   final Offset position;
   _HeartEntry({required this.id, required this.position});
+}
+
+// ── Custom route: expand from icon origin with scrim overlay ──
+
+class _CollectionExpandRoute extends PageRouteBuilder {
+  final Rect originRect;
+
+  _CollectionExpandRoute({required Widget page, required this.originRect})
+    : super(
+        transitionDuration: const Duration(milliseconds: 380),
+        reverseTransitionDuration: const Duration(milliseconds: 380),
+        opaque: false,
+        pageBuilder: (_, __, ___) => page,
+      );
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final size = MediaQuery.of(context).size;
+
+    // Curved animations
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    // Origin center (normalized 0..1)
+    final originX = originRect.center.dx / size.width;
+    final originY = originRect.center.dy / size.height;
+
+    return AnimatedBuilder(
+      animation: curved,
+      builder: (context, _) {
+        final t = curved.value;
+
+        // Scrim: dark overlay that fades in/out smoothly
+        // Content opacity: delayed slightly on enter so scrim appears first
+        final scrimOpacity = t.clamp(0.0, 1.0);
+        final contentOpacity = Interval(0.15, 0.85).transform(t);
+
+        // Scale: from small to full
+        final scale = 0.0 + t * 1.0;
+
+        return Stack(
+          children: [
+            // Dark scrim behind everything
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ColoredBox(
+                  color: Color.fromRGBO(0, 0, 0, 0.5 * scrimOpacity),
+                ),
+              ),
+            ),
+            // Scaled + faded page content
+            Positioned.fill(
+              child: Transform(
+                alignment: Alignment(
+                  // Convert 0..1 to -1..1
+                  originX * 2 - 1,
+                  originY * 2 - 1,
+                ),
+                transform: Matrix4.identity()..scale(scale, scale),
+                child: Opacity(
+                  opacity: contentOpacity.clamp(0.0, 1.0),
+                  child: child,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

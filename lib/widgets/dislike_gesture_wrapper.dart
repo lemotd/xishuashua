@@ -55,19 +55,20 @@ class DislikeGestureWrapperState extends State<DislikeGestureWrapper>
     super.initState();
     _shrinkCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 260),
+      reverseDuration: const Duration(milliseconds: 320),
     );
     _overlayCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 240),
     );
     _suckCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 350),
     );
     _snapBackCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 320),
     );
     _snapBackCtrl.addListener(_onSnapBack);
     _suckCtrl.addStatusListener(_onSuckComplete);
@@ -148,20 +149,20 @@ class DislikeGestureWrapperState extends State<DislikeGestureWrapper>
 
   void _startSnapBack() {
     _snapStart = _dragOffset;
+    _shrinkCtrl.reverse().then((_) {
+      if (mounted) widget.onActiveChanged?.call(false);
+    });
+    _overlayCtrl.reverse();
     _snapBackCtrl.forward(from: 0);
   }
 
   void _onSnapBack() {
     if (!_active) return;
-    final t = Curves.easeOut.transform(_snapBackCtrl.value);
+    final t = Curves.easeOutCubic.transform(_snapBackCtrl.value);
     setState(() {
       _dragOffset = Offset.lerp(_snapStart, Offset.zero, t)!;
     });
     if (_snapBackCtrl.isCompleted) {
-      _shrinkCtrl.reverse().then((_) {
-        if (mounted) widget.onActiveChanged?.call(false);
-      });
-      _overlayCtrl.reverse();
       setState(() {
         _active = false;
         _hoveringHole = false;
@@ -182,14 +183,14 @@ class DislikeGestureWrapperState extends State<DislikeGestureWrapper>
     return AnimatedBuilder(
       animation: Listenable.merge([_shrinkCtrl, _suckCtrl, _overlayCtrl]),
       builder: (context, child) {
-        final shrinkT = Curves.easeInOut.transform(_shrinkCtrl.value);
+        final shrinkT = Curves.easeOutCubic.transform(_shrinkCtrl.value);
 
         double scale;
         double opacity = 1.0;
         Offset offset;
 
         if (_suckingIn) {
-          final suckT = Curves.easeIn.transform(_suckCtrl.value);
+          final suckT = Curves.easeInCubic.transform(_suckCtrl.value);
           scale = _cardScale * (1 - suckT);
           opacity = 1 - suckT;
           // Card center moves from current drag position to hole

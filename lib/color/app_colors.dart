@@ -61,4 +61,5 @@ class _DarkColors {
   final Color onSurfaceTertiary = const Color(0x99FFFFFF); // 60%
   final Color onSurfaceQuaternary = const Color(0x61FFFFFF);
   final Color progressPlayed = const Color(0xCCFFFFFF); // #FFFFFF 80%
+  final Color surfaceContainerHigh = const Color(0x24FFFFFF); // #FFFFFF 14%
 }

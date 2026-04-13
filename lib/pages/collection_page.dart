@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -42,6 +44,7 @@ class _CollectionPageState extends State<CollectionPage>
           children: [
             // ── Custom header: safe area + nav bar + tabs ──
             Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: topPadding),
                 // Nav bar: 56px
@@ -98,8 +101,6 @@ class _CollectionPageState extends State<CollectionPage>
 
 // ── Glass circle button with highlight effect ──
 
-const _accent = Color(0xFFFFA30F);
-
 class _GlassCircleButton extends StatelessWidget {
   final Widget child;
   final VoidCallback onTap;
@@ -108,24 +109,19 @@ class _GlassCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return _PressableScale(
       onTap: onTap,
       child: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.18),
-              Colors.white.withValues(alpha: 0.06),
-            ],
-          ),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
-            width: 0.5,
+          color: _c.surfaceContainerHigh,
+          border: Border(
+            top: BorderSide(
+              color: Colors.white.withValues(alpha: 0.14),
+              width: 0.6,
+            ),
           ),
         ),
         child: Center(child: child),
@@ -134,63 +130,255 @@ class _GlassCircleButton extends StatelessWidget {
   }
 }
 
-// ── Custom tab bar with full-width underline ──
+// ── Press-to-shrink feedback wrapper ──
+
+class _PressableScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final double scaleDown;
+
+  const _PressableScale({
+    required this.child,
+    this.onTap,
+    this.scaleDown = 0.92,
+  });
+
+  @override
+  State<_PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<_PressableScale>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  Timer? _releaseDelay;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: widget.scaleDown,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _releaseDelay?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onDown(TapDownDetails _) {
+    _releaseDelay?.cancel();
+    _ctrl.forward();
+  }
+
+  void _onUp(TapUpDetails _) {
+    // 80ms minimum hold so quick taps still show the animation
+    _releaseDelay?.cancel();
+    _releaseDelay = Timer(const Duration(milliseconds: 80), () {
+      if (mounted) _ctrl.reverse();
+    });
+  }
+
+  void _onCancel() {
+    _releaseDelay?.cancel();
+    _releaseDelay = Timer(const Duration(milliseconds: 80), () {
+      if (mounted) _ctrl.reverse();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onDown,
+      onTapUp: _onUp,
+      onTapCancel: _onCancel,
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: ScaleTransition(scale: _scale, child: widget.child),
+    );
+  }
+}
+
+// ── Custom tab bar with smooth sliding pill highlight ──
 
 class _CustomTabBar extends StatelessWidget {
   final TabController controller;
 
   const _CustomTabBar({required this.controller});
 
-  static const _labels = ['不喜欢', '喜欢', '分享过'];
+  static const _icons = [
+    'images/dislike.svg',
+    'images/like.svg',
+    'images/forward.svg',
+  ];
+  static const _labels = ['不喜欢', '喜欢', '转发'];
+
+  static const _iconSize = 22.0;
+  static const _gap = 8.0;
+  static const _tabHeight = 40.0;
+  static const _radius = 20.0;
+
+  // Fixed widths — collapsed (icon only) and expanded (icon + label)
+  static const _collapsedWidth = 54.0;
+  static const _expandedWidths = [128.0, 104.0, 104.0];
+
+  static double _tabWidth(int i, double progress) {
+    return _collapsedWidth + (_expandedWidths[i] - _collapsedWidth) * progress;
+  }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller.animation!,
       builder: (context, _) {
-        final animValue = controller.animation!.value;
+        final anim = controller.animation!.value;
+
+        // Per-tab progress & width
+        final progresses = <double>[];
+        final widths = <double>[];
+        for (int i = 0; i < 3; i++) {
+          final p = (1.0 - (anim - i).abs()).clamp(0.0, 1.0);
+          progresses.add(p);
+          widths.add(_tabWidth(i, p));
+        }
+
+        // Purple highlight absolute position & size
+        final lefts = <double>[];
+        double x = 0;
+        for (int i = 0; i < 3; i++) {
+          lefts.add(x);
+          x += widths[i] + (i < 2 ? _gap : 0);
+        }
+        final floor = anim.floor().clamp(0, 1);
+        final ceil = (floor + 1).clamp(0, 2);
+        final t = anim - floor;
+        final hlLeft = lefts[floor] + (lefts[ceil] - lefts[floor]) * t;
+        final hlWidth = widths[floor] + (widths[ceil] - widths[floor]) * t;
+
         return SizedBox(
           height: 48,
-          child: Row(
-            children: List.generate(_labels.length, (i) {
-              final distance = (animValue - i).abs();
-              final progress = (1.0 - distance).clamp(0.0, 1.0);
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (i) {
+                final progress = progresses[i];
+                final w = widths[i];
+                // Offset of purple rect relative to this tab's left edge
+                final purpleOffset = hlLeft - lefts[i];
 
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => controller.animateTo(i),
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        _labels[i],
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: progress > 0.5
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: Color.lerp(
-                            _c.textSecondary,
-                            _accent,
-                            progress,
-                          ),
+                return Padding(
+                  padding: EdgeInsets.only(right: i < 2 ? _gap : 0),
+                  child: _PressableScale(
+                    onTap: () => controller.animateTo(i),
+                    child: SizedBox(
+                      width: w,
+                      height: _tabHeight,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(_radius),
+                        child: Stack(
+                          children: [
+                            // Unselected bg — always present
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: _c.surfaceContainerHigh,
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                      width: 0.6,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Purple highlight — clipped by the tab's ClipRRect
+                            Positioned(
+                              left: purpleOffset,
+                              top: 0,
+                              child: Container(
+                                width: hlWidth,
+                                height: _tabHeight,
+                                decoration: BoxDecoration(
+                                  color: _c.highlightPurple,
+                                  borderRadius: BorderRadius.circular(_radius),
+                                ),
+                              ),
+                            ),
+                            // Top highlight border on purple area
+                            Positioned(
+                              left: purpleOffset,
+                              top: 0,
+                              child: Container(
+                                width: hlWidth,
+                                height: 0.6,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(_radius),
+                                    topRight: Radius.circular(_radius),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Icon + label centered
+                            Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SvgPicture.asset(
+                                    _icons[i],
+                                    width: _iconSize,
+                                    height: _iconSize,
+                                    colorFilter: const ColorFilter.mode(
+                                      Colors.white,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  ClipRect(
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      widthFactor: progress,
+                                      child: Opacity(
+                                        opacity: progress,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 6,
+                                          ),
+                                          child: Text(
+                                            _labels[i],
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Container(
-                        height: 2.5,
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: _accent.withValues(alpha: progress),
-                          borderRadius: BorderRadius.circular(1.25),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ),
         );
       },

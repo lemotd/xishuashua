@@ -109,49 +109,53 @@ class _VoiceInputPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
 
-    return Material(
-      color: Colors.transparent,
-      child: SizedBox.expand(
-        child: Stack(
-          children: [
-            // 1. 黑色遮罩（淡入淡出）
-            Positioned.fill(
-              child: FadeTransition(
-                opacity: animation,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  behavior: HitTestBehavior.opaque,
-                  child: const ColoredBox(color: Colors.black26),
-                ),
-              ),
+    return Stack(
+      children: [
+        // 1. 黑色遮罩（淡入淡出）
+        Positioned.fill(
+          child: FadeTransition(
+            opacity: animation,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
+              child: const ColoredBox(color: Colors.black26),
             ),
-            // 2. 扫描光效
-            Positioned.fill(
-              child: IgnorePointer(
-                child: _ExpandGlowWidget(screenSize: screenSize),
-              ),
-            ),
-            // 3. 输入框（从底部滑入，柔和回弹）
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SlideTransition(
-                position:
-                    Tween<Offset>(
-                      begin: const Offset(0, 1),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(
-                        parent: animation,
-                        curve: const _SoftBounceCurve(),
-                        reverseCurve: Curves.easeIn,
-                      ),
-                    ),
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+        ),
+        // 2. 扫描光效
+        Positioned.fill(
+          child: IgnorePointer(
+            child: _ExpandGlowWidget(screenSize: screenSize),
+          ),
+        ),
+        // 3. 输入框 — 用 Scaffold 原生键盘跟随
+        Positioned.fill(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            resizeToAvoidBottomInset: true,
+            body: Column(
+              children: [
+                // 占满上方空间，把输入框推到底部
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    behavior: HitTestBehavior.translucent,
+                    child: const SizedBox.expand(),
                   ),
+                ),
+                // 输入框从底部滑入
+                SlideTransition(
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(0, 1),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: const _SoftBounceCurve(),
+                          reverseCurve: Curves.easeIn,
+                        ),
+                      ),
                   child: VoiceInputSheet(
                     onSubmit: onSubmit,
                     listeningHint: listeningHint,
@@ -159,11 +163,11 @@ class _VoiceInputPage extends StatelessWidget {
                     localeId: localeId,
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -262,13 +266,10 @@ class _VoiceInputSheetState extends State<VoiceInputSheet> {
       }
     }
 
-    // 引擎就绪后自动开始监听
+    // 引擎就绪后立即开始监听（不等动画结束）
     if (_speechAvailable && mounted) {
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted) {
-        _ignoreStatus = false;
-        _startListening();
-      }
+      _ignoreStatus = false;
+      _startListening();
     }
     return _speechAvailable;
   }

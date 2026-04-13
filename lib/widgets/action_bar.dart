@@ -312,16 +312,23 @@ class _PressableButtonState extends State<_PressableButton>
     super.dispose();
   }
 
+  void _delayedReverse() {
+    // Ensure the shrink animation is visible even on quick taps
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (mounted) _ctrl.reverse();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => _ctrl.forward(),
       onTapUp: (_) {
-        _ctrl.reverse();
+        _delayedReverse();
         HapticFeedback.selectionClick();
         widget.onTap();
       },
-      onTapCancel: () => _ctrl.reverse(),
+      onTapCancel: _delayedReverse,
       onLongPress: widget.onLongPress != null
           ? () {
               _ctrl.reverse();
