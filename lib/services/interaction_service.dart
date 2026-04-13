@@ -79,6 +79,16 @@ class InteractionService {
 
   static int getCommentCount(String assetId) => getComments(assetId).length;
 
+  static void removeComment(String assetId, int index) {
+    final comments = getComments(assetId);
+    if (index < 0 || index >= comments.length) return;
+    comments.removeAt(index);
+    _prefs.setString(
+      '${_commentsKey}_$assetId',
+      jsonEncode(comments.map((e) => e.toJson()).toList()),
+    );
+  }
+
   // ── Shares ──
 
   static int getShareCount(String assetId) {

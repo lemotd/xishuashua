@@ -1,12 +1,13 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:share_plus/share_plus.dart';
 import '../color/app_colors.dart';
 import '../services/interaction_service.dart';
-import 'comment_sheet.dart';
-import 'spring_bottom_sheet.dart';
+import 'voice_input_sheet.dart';
 
 const _c = AppColors.dark;
 
@@ -14,7 +15,15 @@ class ActionBar extends StatefulWidget {
   final AssetEntity asset;
   final VoidCallback? onLikeTriggered;
 
-  const ActionBar({super.key, required this.asset, this.onLikeTriggered});
+  /// Callback when a comment is successfully posted.
+  final VoidCallback? onCommentPosted;
+
+  const ActionBar({
+    super.key,
+    required this.asset,
+    this.onLikeTriggered,
+    this.onCommentPosted,
+  });
 
   @override
   State<ActionBar> createState() => ActionBarState();
@@ -89,15 +98,20 @@ class ActionBarState extends State<ActionBar>
   void _onComment() async {
     if (_commentOpen) return;
     _commentOpen = true;
-    await showSpringBottomSheet(
-      context: context,
-      builder: (_) => CommentSheet(assetId: _assetId),
+    await VoiceInputSheet.show(
+      context,
+      typingHint: '写评论...',
+      listeningHint: '说点什么...',
+      onSubmit: (text) {
+        InteractionService.addComment(_assetId, text);
+      },
     );
     _commentOpen = false;
     if (mounted) {
       setState(
         () => _commentCount = InteractionService.getCommentCount(_assetId),
       );
+      widget.onCommentPosted?.call();
     }
   }
 
@@ -113,6 +127,53 @@ class ActionBarState extends State<ActionBar>
   void dispose() {
     _likeAnimCtrl.dispose();
     super.dispose();
+  }
+
+  static const _iconShadows = [Shadow(color: Color(0x40000000), blurRadius: 4)];
+
+  Widget _svgWithShadow(
+    String path, {
+    required double size,
+    ColorFilter? colorFilter,
+    Key? key,
+  }) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.compose(
+        outer: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+        inner: ColorFilter.mode(const Color(0x99000000), BlendMode.srcATop),
+      ),
+      enabled: false,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Shadow layer
+          Positioned(
+            top: 1,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+              child: SvgPicture.asset(
+                path,
+                key: key != null ? ValueKey('${key}_shadow') : null,
+                width: size,
+                height: size,
+                colorFilter: const ColorFilter.mode(
+                  Color(0x33000000),
+                  BlendMode.srcIn,
+                ),
+              ),
+            ),
+          ),
+          // Foreground layer
+          SvgPicture.asset(
+            path,
+            key: key,
+            width: size,
+            height: size,
+            colorFilter: colorFilter,
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -134,16 +195,14 @@ class ActionBarState extends State<ActionBar>
                   duration: const Duration(milliseconds: 200),
                   transitionBuilder: (child, anim) =>
                       ScaleTransition(scale: anim, child: child),
-                  child: Icon(
-                    _liked
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_outline_rounded,
+                  child: _svgWithShadow(
+                    'images/like.svg',
+                    size: 36,
+                    colorFilter: ColorFilter.mode(
+                      _liked ? _c.primary : _c.icon,
+                      BlendMode.srcIn,
+                    ),
                     key: ValueKey(_liked),
-                    color: _liked ? _c.primary : _c.icon,
-                    size: 34,
-                    shadows: _liked
-                        ? [Shadow(color: _c.primaryGlow, blurRadius: 12)]
-                        : null,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -153,6 +212,7 @@ class ActionBarState extends State<ActionBar>
                     color: _liked ? _c.primary : _c.iconInactive,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
+                    shadows: _iconShadows,
                   ),
                 ),
               ],
@@ -165,11 +225,10 @@ class ActionBarState extends State<ActionBar>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.chat_bubble_rounded,
-                color: _c.icon,
-                size: 30,
-                shadows: [Shadow(color: _c.shadow, blurRadius: 8)],
+              _svgWithShadow(
+                'images/comment.svg',
+                size: 36,
+                colorFilter: ColorFilter.mode(_c.icon, BlendMode.srcIn),
               ),
               const SizedBox(height: 2),
               Text(
@@ -178,6 +237,7 @@ class ActionBarState extends State<ActionBar>
                   color: _c.iconInactive,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
+                  shadows: _iconShadows,
                 ),
               ),
             ],
@@ -189,11 +249,10 @@ class ActionBarState extends State<ActionBar>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.near_me_rounded,
-                color: _c.icon,
-                size: 30,
-                shadows: [Shadow(color: _c.shadow, blurRadius: 8)],
+              _svgWithShadow(
+                'images/forward.svg',
+                size: 36,
+                colorFilter: ColorFilter.mode(_c.icon, BlendMode.srcIn),
               ),
               const SizedBox(height: 2),
               Text(
@@ -202,6 +261,7 @@ class ActionBarState extends State<ActionBar>
                   color: _c.iconInactive,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
+                  shadows: _iconShadows,
                 ),
               ),
             ],

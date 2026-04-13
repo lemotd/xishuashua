@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../color/app_colors.dart';
 import '../services/interaction_service.dart';
@@ -50,8 +51,15 @@ class _CollectionPageState extends State<CollectionPage>
                     children: [
                       const SizedBox(width: 12),
                       _GlassCircleButton(
-                        icon: Icons.chevron_left_rounded,
-                        iconSize: 26,
+                        child: SvgPicture.asset(
+                          'images/back.svg',
+                          width: 24,
+                          height: 24,
+                          colorFilter: ColorFilter.mode(
+                            _c.textPrimary,
+                            BlendMode.srcIn,
+                          ),
+                        ),
                         onTap: () => Navigator.pop(context),
                       ),
                       const Spacer(),
@@ -93,15 +101,10 @@ class _CollectionPageState extends State<CollectionPage>
 const _accent = Color(0xFFFFA30F);
 
 class _GlassCircleButton extends StatelessWidget {
-  final IconData icon;
-  final double iconSize;
+  final Widget child;
   final VoidCallback onTap;
 
-  const _GlassCircleButton({
-    required this.icon,
-    this.iconSize = 22,
-    required this.onTap,
-  });
+  const _GlassCircleButton({required this.child, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +128,7 @@ class _GlassCircleButton extends StatelessWidget {
             width: 0.5,
           ),
         ),
-        child: Icon(icon, color: _c.textPrimary, size: iconSize),
+        child: Center(child: child),
       ),
     );
   }

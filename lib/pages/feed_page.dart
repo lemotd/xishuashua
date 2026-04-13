@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../color/app_colors.dart';
 import '../models/feed_item.dart';
@@ -10,6 +11,7 @@ import '../widgets/carousel_card.dart';
 import '../widgets/action_bar.dart';
 import '../widgets/floating_heart.dart';
 import '../widgets/dislike_gesture_wrapper.dart';
+import '../widgets/danmaku_overlay.dart';
 import '../widgets/location_map_sheet.dart';
 import '../widgets/media_info_sheet.dart';
 import 'collection_page.dart';
@@ -39,6 +41,7 @@ class _FeedPageState extends State<FeedPage> {
   bool _speedUp = false;
   final GlobalKey<ActionBarState> _actionBarKey = GlobalKey();
   final GlobalKey<DislikeGestureWrapperState> _dislikeKey = GlobalKey();
+  final GlobalKey<DanmakuOverlayState> _danmakuKey = GlobalKey();
   bool _isSpeedingUp = false;
   bool _dislikeActive = false;
 
@@ -305,10 +308,14 @@ class _FeedPageState extends State<FeedPage> {
               surfaceTintColor: Colors.transparent,
               centerTitle: true,
               leading: IconButton(
-                icon: Icon(
-                  Icons.video_library_outlined,
-                  color: _c.textPrimary,
-                  size: 24,
+                icon: SvgPicture.asset(
+                  'images/collection.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(
+                    _c.textPrimary,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 onPressed: () {
                   Navigator.push(
@@ -387,8 +394,18 @@ class _FeedPageState extends State<FeedPage> {
                   final size = MediaQuery.of(context).size;
                   _spawnHeart(Offset(size.width / 2, size.height / 2));
                 },
+                onCommentPosted: () {
+                  _danmakuKey.currentState?.reload();
+                },
               ),
             ),
+          // Danmaku overlay — always visible when there are comments
+          Positioned.fill(
+            child: DanmakuOverlay(
+              key: _danmakuKey,
+              assetId: currentItem.primary.id,
+            ),
+          ),
           if (!_dislikeActive)
             Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomInfo()),
           ..._hearts.map(

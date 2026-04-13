@@ -41,6 +41,8 @@ class _DarkColors {
   final Color surface = const Color(0xFF1C1C1E);
   final Color primary = const Color(0xFFFF2D55);
   final Color primaryGlow = const Color(0x80FF2D55);
+  final Color highlightPurple = const Color(0xFF8370FF);
+  final Color highlightPurpleGlow = const Color(0x808370FF);
   final Color textPrimary = const Color(0xFFFFFFFF);
   final Color textSecondary = const Color(0xB3FFFFFF);
   final Color textHint = const Color(0x61FFFFFF);
