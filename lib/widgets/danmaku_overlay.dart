@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../color/app_colors.dart';
@@ -59,6 +60,15 @@ class DanmakuOverlayState extends State<DanmakuOverlay>
   void reload() {
     _clearAll();
     if (mounted) setState(() => _launchComments());
+  }
+
+  /// 追加一条新弹幕，不刷新已有的
+  void addOne(String text) {
+    if (!mounted) return;
+    final comments = InteractionService.getComments(widget.assetId);
+    final index = comments.length - 1;
+    final lane = _random.nextInt(_laneCount);
+    _spawnOne(text, lane, index < 0 ? 0 : index);
   }
 
   void _launchComments() {
@@ -245,7 +255,10 @@ class DanmakuOverlayState extends State<DanmakuOverlay>
                       color: isSelected
                           ? Colors.black.withValues(alpha: 0.6)
                           : Colors.black.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: SmoothBorderRadius(
+                        cornerRadius: 16,
+                        cornerSmoothing: 0.6,
+                      ),
                       border: isSelected
                           ? Border.all(
                               color: Colors.white.withValues(alpha: 0.4),
@@ -362,7 +375,10 @@ class _DeleteMenuState extends State<_DeleteMenu>
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: _c.primary,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: SmoothBorderRadius(
+              cornerRadius: 12,
+              cornerSmoothing: 0.6,
+            ),
           ),
           child: const Text(
             '删除',

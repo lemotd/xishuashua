@@ -1,8 +1,10 @@
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../color/app_colors.dart';
 import '../services/exif_service.dart';
 import '../services/location_service.dart';
+import '../services/map_config.dart';
 import 'spring_bottom_sheet.dart';
 import 'location_map_sheet.dart';
 
@@ -68,14 +70,13 @@ class _MediaInfoSheetState extends State<_MediaInfoSheet> {
     return DefaultTextStyle(
       style: _baseStyle.copyWith(color: _c.textPrimary, fontSize: 14),
       child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.75,
-        ),
         decoration: BoxDecoration(
           color: _c.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const SmoothBorderRadius.vertical(
+            top: SmoothRadius(cornerRadius: 20, cornerSmoothing: 0.6),
+          ),
         ),
-        child: SingleChildScrollView(
+        child: Padding(
           padding: EdgeInsets.only(bottom: 16 + bottomPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,7 +90,10 @@ class _MediaInfoSheetState extends State<_MediaInfoSheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: _c.textHint,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: SmoothBorderRadius(
+                      cornerRadius: 2,
+                      cornerSmoothing: 0.6,
+                    ),
                   ),
                 ),
               ),
@@ -188,19 +192,12 @@ class _MediaInfoSheetState extends State<_MediaInfoSheet> {
   /// Camera/video info section: device, lens, EXIF params, then file details.
   Widget _buildMediaSection() {
     final meta = _meta!;
-    final isVideo = widget.asset.type == AssetType.video;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section header
-          _buildSectionHeader(
-            icon: isVideo ? Icons.videocam_rounded : Icons.camera_alt_rounded,
-            title: isVideo ? '视频信息' : '相片信息',
-          ),
-          const SizedBox(height: 14),
           // Device name
           if (meta.deviceName != null) ...[
             Text(
@@ -290,7 +287,10 @@ class _MediaInfoSheetState extends State<_MediaInfoSheet> {
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 border: Border.all(color: _c.divider),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: SmoothBorderRadius(
+                  cornerRadius: 10,
+                  cornerSmoothing: 0.6,
+                ),
               ),
               child: Column(
                 children: [
@@ -408,22 +408,24 @@ class _MediaInfoSheetState extends State<_MediaInfoSheet> {
                 Navigator.of(context).pop();
                 showLocationSheet(
                   context: context,
+                  asset: widget.asset,
                   locationName: _locationName!,
                   latitude: _lat!,
                   longitude: _lng!,
                 );
               },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
+              child: ClipSmoothRect(
+                radius: SmoothBorderRadius(
+                  cornerRadius: 14,
+                  cornerSmoothing: 0.6,
+                ),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
                       Image.network(
-                        'https://staticmap.openstreetmap.de/staticmap.php'
-                        '?center=$_lat,$_lng'
-                        '&zoom=14&size=600x340&maptype=mapnik',
+                        amapStaticMapUrl(latitude: _lat!, longitude: _lng!),
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           color: _c.cardBackground,
@@ -441,7 +443,7 @@ class _MediaInfoSheetState extends State<_MediaInfoSheet> {
                             color: _c.cardBackground,
                             child: Center(
                               child: CircularProgressIndicator(
-                                color: _c.primary,
+                                color: _c.highlightPurple,
                                 strokeWidth: 2,
                               ),
                             ),
@@ -451,7 +453,7 @@ class _MediaInfoSheetState extends State<_MediaInfoSheet> {
                       Center(
                         child: Icon(
                           Icons.location_on,
-                          color: _c.primary,
+                          color: _c.highlightPurple,
                           size: 32,
                         ),
                       ),

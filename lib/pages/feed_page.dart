@@ -1,3 +1,4 @@
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -51,10 +52,15 @@ class _FeedPageState extends State<FeedPage> {
   final PageController _pageController = PageController();
   AssetEntity? _carouselCurrentAsset;
 
+  /// Remembers which slide index the user was on for each group FeedItem,
+  /// so that scrolling away and back restores the correct slide & date.
+  final Map<String, int> _carouselPageIndex = {};
+
   // Location info for current item
   String? _currentLocation;
   double? _currentLat;
   double? _currentLng;
+  bool _scrubbing = false;
 
   @override
   void initState() {
@@ -90,21 +96,24 @@ class _FeedPageState extends State<FeedPage> {
       _currentPage,
       pageSize: _pageSize,
     );
-    if (newItems.isEmpty) {
-      _hasMore = false;
-    } else {
+    if (newItems.isEmpty || MediaService.remaining <= 0) {
+      _hasMore = newItems.isNotEmpty; // still show what we got, but stop after
+    }
+    if (newItems.isNotEmpty) {
       _currentPage++;
       setState(() => _items.addAll(newItems));
-      // Rough check: if we've loaded enough raw assets
-      if (_items.length >= MediaService.totalCount) _hasMore = false;
     }
     _loadingMore = false;
   }
 
   void _onPageChanged(int index) {
+    final item = _items[index.clamp(0, _items.length - 1)];
+    final savedSlide = item.isGroup ? _carouselPageIndex[item.id] : null;
     setState(() {
       _currentIndex = index;
-      _carouselCurrentAsset = null;
+      _carouselCurrentAsset = (savedSlide != null)
+          ? item.assets[savedSlide]
+          : null;
     });
     if (_hasMore && index >= _items.length - _preloadThreshold) {
       _loadNextPage();
@@ -114,7 +123,8 @@ class _FeedPageState extends State<FeedPage> {
 
   Future<void> _loadLocationForCurrentItem() async {
     if (_items.isEmpty) return;
-    final item = _items[_currentIndex.clamp(0, _items.length - 1)];
+    final index = _currentIndex;
+    final item = _items[index.clamp(0, _items.length - 1)];
     final asset = item.primary;
 
     setState(() {
@@ -123,10 +133,10 @@ class _FeedPageState extends State<FeedPage> {
       _currentLng = null;
     });
 
-    final name = await LocationService.getLocationName(asset);
     final coords = await LocationService.getLatLng(asset);
+    final name = await LocationService.getLocationName(asset);
 
-    if (!mounted) return;
+    if (!mounted || _currentIndex != index) return;
     setState(() {
       _currentLocation = name;
       _currentLat = coords?.$1;
@@ -368,13 +378,27 @@ class _FeedPageState extends State<FeedPage> {
                   itemBuilder: (context, index) {
                     final item = _items[index];
                     if (item.isGroup) {
+                      final savedPage = _carouselPageIndex[item.id] ?? 0;
                       return CarouselCard(
                         key: ValueKey('group_${item.id}'),
                         assets: item.assets,
+                        initialPage: savedPage,
                         onSlideChanged: index == _currentIndex
-                            ? (asset) =>
-                                  setState(() => _carouselCurrentAsset = asset)
-                            : null,
+                            ? (asset) {
+                                final slideIdx = item.assets.indexOf(asset);
+                                if (slideIdx >= 0) {
+                                  _carouselPageIndex[item.id] = slideIdx;
+                                }
+                                setState(() => _carouselCurrentAsset = asset);
+                              }
+                            : (asset) {
+                                // Even when not the active page, remember the
+                                // slide index so we can restore it later.
+                                final slideIdx = item.assets.indexOf(asset);
+                                if (slideIdx >= 0) {
+                                  _carouselPageIndex[item.id] = slideIdx;
+                                }
+                              },
                       );
                     }
                     return MediaCard(
@@ -382,6 +406,7 @@ class _FeedPageState extends State<FeedPage> {
                       asset: item.primary,
                       isActive: index == _currentIndex,
                       onSpeedChanged: (v) => setState(() => _speedUp = v),
+                      onScrubbingChanged: (v) => setState(() => _scrubbing = v),
                       onStateCreated: index == _currentIndex
                           ? (state) => _activeCardState = state
                           : null,
@@ -403,8 +428,8 @@ class _FeedPageState extends State<FeedPage> {
                   final size = MediaQuery.of(context).size;
                   _spawnHeart(Offset(size.width / 2, size.height / 2));
                 },
-                onCommentPosted: () {
-                  _danmakuKey.currentState?.reload();
+                onCommentPosted: (text) {
+                  _danmakuKey.currentState?.addOne(text);
                 },
               ),
             ),
@@ -416,7 +441,16 @@ class _FeedPageState extends State<FeedPage> {
             ),
           ),
           if (!_dislikeActive)
-            Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomInfo()),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _scrubbing ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 150),
+                child: _buildBottomInfo(),
+              ),
+            ),
           ..._hearts.map(
             (h) => FloatingHeart(
               key: ValueKey(h.id),
@@ -478,7 +512,7 @@ class _FeedPageState extends State<FeedPage> {
         IgnorePointer(
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 76),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
@@ -492,7 +526,7 @@ class _FeedPageState extends State<FeedPage> {
         ),
         // Interactive content on top — only buttons intercept taps
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 76),
           child: content,
         ),
       ],
@@ -507,8 +541,11 @@ class _FeedPageState extends State<FeedPage> {
       child: GestureDetector(
         onTap: () {
           if (_currentLat != null && _currentLng != null) {
+            final item = _items[_currentIndex.clamp(0, _items.length - 1)];
+            final asset = _carouselCurrentAsset ?? item.primary;
             showLocationSheet(
               context: context,
+              asset: asset,
               locationName: _currentLocation!,
               latitude: _currentLat!,
               longitude: _currentLng!,
@@ -519,7 +556,10 @@ class _FeedPageState extends State<FeedPage> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: SmoothBorderRadius(
+              cornerRadius: 20,
+              cornerSmoothing: 0.6,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -635,16 +675,19 @@ class _CollectionExpandRoute extends PageRouteBuilder {
             ),
             // Scaled + faded page content
             Positioned.fill(
-              child: Transform(
-                alignment: Alignment(
-                  // Convert 0..1 to -1..1
-                  originX * 2 - 1,
-                  originY * 2 - 1,
-                ),
-                transform: Matrix4.identity()..scale(scale, scale),
-                child: Opacity(
-                  opacity: contentOpacity.clamp(0.0, 1.0),
-                  child: child,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(40 * (1.0 - t)),
+                child: Transform(
+                  alignment: Alignment(
+                    // Convert 0..1 to -1..1
+                    originX * 2 - 1,
+                    originY * 2 - 1,
+                  ),
+                  transform: Matrix4.identity()..scale(scale, scale),
+                  child: Opacity(
+                    opacity: contentOpacity.clamp(0.0, 1.0),
+                    child: child,
+                  ),
                 ),
               ),
             ),

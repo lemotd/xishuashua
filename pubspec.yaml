@@ -42,6 +42,7 @@ dependencies:
   exif: ^3.3.0
   flutter_svg: ^2.0.17
   speech_to_text: ^7.0.0
+  figma_squircle: ^0.6.3
 
 dev_dependencies:
   flutter_test:

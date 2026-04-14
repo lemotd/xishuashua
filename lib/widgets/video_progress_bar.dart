@@ -1,3 +1,4 @@
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../color/app_colors.dart';
@@ -149,7 +150,10 @@ class _VideoProgressBarState extends State<VideoProgressBar> {
                           height: barHeight,
                           decoration: BoxDecoration(
                             color: _c.shimmer,
-                            borderRadius: BorderRadius.circular(barHeight / 2),
+                            borderRadius: SmoothBorderRadius(
+                              cornerRadius: barHeight / 2,
+                              cornerSmoothing: 0.6,
+                            ),
                           ),
                         ),
                         // Played track
@@ -161,7 +165,10 @@ class _VideoProgressBarState extends State<VideoProgressBar> {
                           width: fraction * barWidth,
                           decoration: BoxDecoration(
                             color: _c.progressPlayed,
-                            borderRadius: BorderRadius.circular(barHeight / 2),
+                            borderRadius: SmoothBorderRadius(
+                              cornerRadius: barHeight / 2,
+                              cornerSmoothing: 0.6,
+                            ),
                           ),
                         ),
                         // Capsule thumb
@@ -176,8 +183,9 @@ class _VideoProgressBarState extends State<VideoProgressBar> {
                             height: thumbSize,
                             decoration: BoxDecoration(
                               color: _c.textPrimary,
-                              borderRadius: BorderRadius.circular(
-                                thumbSize / 2,
+                              borderRadius: SmoothBorderRadius(
+                                cornerRadius: thumbSize / 2,
+                                cornerSmoothing: 0.6,
                               ),
                               boxShadow: _dragging
                                   ? [

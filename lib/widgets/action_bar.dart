@@ -15,8 +15,8 @@ class ActionBar extends StatefulWidget {
   final AssetEntity asset;
   final VoidCallback? onLikeTriggered;
 
-  /// Callback when a comment is successfully posted.
-  final VoidCallback? onCommentPosted;
+  /// Callback when a comment is successfully posted, with the comment text.
+  final ValueChanged<String>? onCommentPosted;
 
   const ActionBar({
     super.key,
@@ -98,12 +98,14 @@ class ActionBarState extends State<ActionBar>
   void _onComment() async {
     if (_commentOpen) return;
     _commentOpen = true;
+    String? postedText;
     await VoiceInputSheet.show(
       context,
       typingHint: '写评论...',
       listeningHint: '说点什么...',
       onSubmit: (text) {
         InteractionService.addComment(_assetId, text);
+        postedText = text;
       },
     );
     _commentOpen = false;
@@ -111,7 +113,9 @@ class ActionBarState extends State<ActionBar>
       setState(
         () => _commentCount = InteractionService.getCommentCount(_assetId),
       );
-      widget.onCommentPosted?.call();
+      if (postedText != null) {
+        widget.onCommentPosted?.call(postedText!);
+      }
     }
   }
 

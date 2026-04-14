@@ -1,3 +1,4 @@
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'black_hole_overlay.dart';
@@ -225,11 +226,12 @@ class DislikeGestureWrapperState extends State<DislikeGestureWrapper>
                   scale: scale,
                   child: Opacity(
                     opacity: opacity,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                        _cardRadius * shrinkT,
+                    child: ClipSmoothRect(
+                      radius: SmoothBorderRadius(
+                        cornerRadius: _cardRadius * shrinkT,
+                        cornerSmoothing: 0.6,
                       ),
-                      child: child,
+                      child: child!,
                     ),
                   ),
                 ),

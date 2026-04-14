@@ -25,6 +25,7 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -107,67 +108,65 @@ class _VoiceInputPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
+    final mq = MediaQuery.of(context);
+    final screenSize = mq.size;
+    final keyboardBottom = mq.viewInsets.bottom;
 
-    return Stack(
-      children: [
-        // 1. 黑色遮罩（淡入淡出）
-        Positioned.fill(
-          child: FadeTransition(
-            opacity: animation,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              behavior: HitTestBehavior.opaque,
-              child: const ColoredBox(color: Colors.black26),
+    return MediaQuery(
+      data: mq.copyWith(viewInsets: EdgeInsets.zero),
+      child: Stack(
+        children: [
+          // 1. 黑色遮罩（淡入淡出）
+          Positioned.fill(
+            child: FadeTransition(
+              opacity: animation,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                behavior: HitTestBehavior.opaque,
+                child: const ColoredBox(color: Colors.black26),
+              ),
             ),
           ),
-        ),
-        // 2. 扫描光效
-        Positioned.fill(
-          child: IgnorePointer(
-            child: _ExpandGlowWidget(screenSize: screenSize),
+          // 2. 扫描光效
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _ExpandGlowWidget(screenSize: screenSize),
+            ),
           ),
-        ),
-        // 3. 输入框 — 用 Scaffold 原生键盘跟随
-        Positioned.fill(
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            resizeToAvoidBottomInset: true,
-            body: Column(
-              children: [
-                // 占满上方空间，把输入框推到底部
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    behavior: HitTestBehavior.translucent,
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-                // 输入框从底部滑入
-                SlideTransition(
-                  position:
-                      Tween<Offset>(
-                        begin: const Offset(0, 1),
-                        end: Offset.zero,
-                      ).animate(
-                        CurvedAnimation(
-                          parent: animation,
-                          curve: const _SoftBounceCurve(),
-                          reverseCurve: Curves.easeIn,
-                        ),
+          // 3. 键盘跟随层 — 独立于 SlideTransition
+          //    用 AnimatedContainer 控制 bottom，和 SlideTransition 完全解耦
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.linear,
+            left: 0,
+            right: 0,
+            bottom: keyboardBottom,
+            child: Material(
+              color: Colors.transparent,
+              // 4. 滑入动画 — 只管进场，不影响键盘跟随
+              child: SlideTransition(
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0, 1),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: const _SoftBounceCurve(),
+                        reverseCurve: Curves.easeIn,
                       ),
-                  child: VoiceInputSheet(
-                    onSubmit: onSubmit,
-                    listeningHint: listeningHint,
-                    typingHint: typingHint,
-                    localeId: localeId,
-                  ),
+                    ),
+                child: VoiceInputSheet(
+                  onSubmit: onSubmit,
+                  listeningHint: listeningHint,
+                  typingHint: typingHint,
+                  localeId: localeId,
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -411,7 +410,10 @@ class _VoiceInputSheetState extends State<VoiceInputSheet> {
         child: _isProcessing
             ? _buildProcessingIndicator(isDark)
             : AIGlowBorder(
-                borderRadius: BorderRadius.circular(100),
+                borderRadius: SmoothBorderRadius(
+                  cornerRadius: 100,
+                  cornerSmoothing: 0.6,
+                ),
                 intensity: _isListening ? 0.4 + _soundLevel * 0.6 : 0.25,
                 child: _buildInputBar(isDark, hintText),
               ),
@@ -424,7 +426,10 @@ class _VoiceInputSheetState extends State<VoiceInputSheet> {
       height: 56,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
-        borderRadius: BorderRadius.circular(100),
+        borderRadius: SmoothBorderRadius(
+          cornerRadius: 100,
+          cornerSmoothing: 0.6,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -463,7 +468,10 @@ class _VoiceInputSheetState extends State<VoiceInputSheet> {
       height: 56,
       decoration: BoxDecoration(
         color: surfaceColor,
-        borderRadius: BorderRadius.circular(100),
+        borderRadius: SmoothBorderRadius(
+          cornerRadius: 100,
+          cornerSmoothing: 0.6,
+        ),
       ),
       child: Row(
         children: [
@@ -576,7 +584,7 @@ class _VoiceInputSheetState extends State<VoiceInputSheet> {
 /// [intensity] 0.0 = 微弱光效, 1.0 = 最强光效（语音说话时）
 class AIGlowBorder extends StatefulWidget {
   final Widget child;
-  final BorderRadius? borderRadius;
+  final SmoothBorderRadius? borderRadius;
   final double intensity; // 0.0 ~ 1.0
 
   const AIGlowBorder({
@@ -611,7 +619,9 @@ class _AIGlowBorderState extends State<AIGlowBorder>
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = widget.borderRadius ?? BorderRadius.circular(20);
+    final borderRadius =
+        widget.borderRadius ??
+        SmoothBorderRadius(cornerRadius: 20, cornerSmoothing: 0.6);
 
     return RepaintBoundary(
       child: AnimatedBuilder(
@@ -634,7 +644,7 @@ class _AIGlowBorderState extends State<AIGlowBorder>
 
 class _GlowBorderPainter extends CustomPainter {
   final double animationValue;
-  final BorderRadius borderRadius;
+  final SmoothBorderRadius borderRadius;
   final double intensity;
 
   _GlowBorderPainter({

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../color/app_colors.dart';
@@ -13,12 +14,14 @@ class CarouselCard extends StatefulWidget {
   final List<AssetEntity> assets;
   final ValueChanged<Uint8List?>? onSnapshotReady;
   final ValueChanged<AssetEntity>? onSlideChanged;
+  final int initialPage;
 
   const CarouselCard({
     super.key,
     required this.assets,
     this.onSnapshotReady,
     this.onSlideChanged,
+    this.initialPage = 0,
   });
 
   @override
@@ -44,7 +47,8 @@ class CarouselCardState extends State<CarouselCard>
   @override
   void initState() {
     super.initState();
-    _pageCtrl = PageController();
+    _current = widget.initialPage.clamp(0, widget.assets.length - 1);
+    _pageCtrl = PageController(initialPage: _current);
     _progressCtrl = AnimationController(vsync: this, duration: _slideDuration);
     _startAutoPlay();
     _loadCurrentThumbnail();
@@ -147,7 +151,10 @@ class CarouselCardState extends State<CarouselCard>
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: _c.overlay,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 12,
+                cornerSmoothing: 0.6,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -168,7 +175,7 @@ class CarouselCardState extends State<CarouselCard>
         ),
         // Bottom progress bar
         Positioned(
-          bottom: 110,
+          bottom: 48,
           left: 16,
           right: 16,
           child: _AnimatedProgressBar(
@@ -271,7 +278,10 @@ class _AnimatedProgressBar extends StatelessWidget {
             height: 3,
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(1.5),
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 1.5,
+                cornerSmoothing: 0.6,
+              ),
               color: isPast
                   ? _c.textPrimary
                   : _c.textPrimary.withValues(alpha: 0.3),
@@ -285,7 +295,10 @@ class _AnimatedProgressBar extends StatelessWidget {
                         widthFactor: autoPlay ? animation.value : 1.0,
                         child: Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(1.5),
+                            borderRadius: SmoothBorderRadius(
+                              cornerRadius: 1.5,
+                              cornerSmoothing: 0.6,
+                            ),
                             color: _c.textPrimary,
                           ),
                         ),

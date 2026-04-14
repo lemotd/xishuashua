@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -13,6 +14,7 @@ class MediaCard extends StatefulWidget {
   final bool isActive;
   final ValueChanged<bool>? onSpeedChanged;
   final ValueChanged<MediaCardState>? onStateCreated;
+  final ValueChanged<bool>? onScrubbingChanged;
 
   const MediaCard({
     super.key,
@@ -20,6 +22,7 @@ class MediaCard extends StatefulWidget {
     required this.isActive,
     this.onSpeedChanged,
     this.onStateCreated,
+    this.onScrubbingChanged,
   });
 
   @override
@@ -371,7 +374,10 @@ class MediaCardState extends State<MediaCard>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: _c.overlay,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: SmoothBorderRadius(
+                    cornerRadius: 12,
+                    cornerSmoothing: 0.6,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -505,13 +511,14 @@ class MediaCardState extends State<MediaCard>
           ),
         ),
         Positioned(
-          bottom: 100,
+          bottom: 48,
           left: 16,
           right: 16,
           child: VideoProgressBar(
             controller: controller,
             onDraggingChanged: (dragging) {
               setState(() => _scrubbing = dragging);
+              widget.onScrubbingChanged?.call(dragging);
             },
           ),
         ),

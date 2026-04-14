@@ -1,3 +1,4 @@
+import 'package:figma_squircle/figma_squircle.dart';
 import 'package:flutter/material.dart';
 import '../color/app_colors.dart';
 import '../services/interaction_service.dart';
@@ -69,8 +70,8 @@ class _CommentSheetState extends State<CommentSheet> {
               child: Container(
                 decoration: BoxDecoration(
                   color: _c.cardBackground,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
+                  borderRadius: const SmoothBorderRadius.vertical(
+                    top: SmoothRadius(cornerRadius: 16, cornerSmoothing: 0.6),
                   ),
                 ),
                 child: Column(
@@ -117,7 +118,10 @@ class _CommentSheetState extends State<CommentSheet> {
                             vertical: 10,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: SmoothBorderRadius(
+                              cornerRadius: 20,
+                              cornerSmoothing: 0.6,
+                            ),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -149,7 +153,10 @@ class _CommentSheetState extends State<CommentSheet> {
             height: 4,
             decoration: BoxDecoration(
               color: _c.textHint,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 2,
+                cornerSmoothing: 0.6,
+              ),
             ),
           ),
           const SizedBox(height: 12),

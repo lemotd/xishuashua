@@ -121,11 +121,34 @@ class _DraggableSheet extends StatefulWidget {
   State<_DraggableSheet> createState() => _DraggableSheetState();
 }
 
-class _DraggableSheetState extends State<_DraggableSheet> {
+class _DraggableSheetState extends State<_DraggableSheet>
+    with SingleTickerProviderStateMixin {
   double _dragOffset = 0;
   bool _isDragging = false;
 
+  late final AnimationController _snapBack;
+  late Animation<double> _snapAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapBack =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 350),
+        )..addListener(() {
+          setState(() => _dragOffset = _snapAnimation.value);
+        });
+  }
+
+  @override
+  void dispose() {
+    _snapBack.dispose();
+    super.dispose();
+  }
+
   void _onDragStart(DragStartDetails details) {
+    _snapBack.stop();
     _isDragging = true;
     _dragOffset = 0;
   }
@@ -144,7 +167,11 @@ class _DraggableSheetState extends State<_DraggableSheet> {
     if (_dragOffset > 100 || velocity > 500) {
       Navigator.of(context).pop();
     } else {
-      setState(() => _dragOffset = 0);
+      _snapAnimation = Tween<double>(
+        begin: _dragOffset,
+        end: 0,
+      ).animate(CurvedAnimation(parent: _snapBack, curve: Curves.easeOutCubic));
+      _snapBack.forward(from: 0);
     }
   }
 
